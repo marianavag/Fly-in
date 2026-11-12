@@ -95,19 +95,28 @@ class PathFinder:
     @classmethod
     def find_multiple_paths(cls, graph: Graph, start: str,
                             end: str, max_paths: int = 2) -> list[list[str]]:
-        """Calculates multiple alternative paths."""
-        paths = []
-        blocked_nodes: set[str] = set()
-        blocked_connections: set[frozenset[str]] = set()
-        for _ in range(max_paths):
-            try:
-                path = cls.find_path(graph, start, end, blocked_nodes,
-                                     blocked_connections)
-                paths.append(path)
-                if len(path) > 1:
-                    blocked_connections.add(frozenset((path[0], path[1])))
-            except PathNotFoundError:
-                break
-        if not paths:
-            paths.append(cls.find_path(graph, start, end))
+        """Finds alternative paths between start and end."""
+        paths: list[list[str]] = []
+        try:
+            first_path = cls.find_path(graph, start, end)
+            paths.append(first_path)
+        except PathNotFoundError:
+            return paths
+        for existing_path in paths.copy():
+            for i in range(len(existing_path) - 1):
+                connection = frozenset(
+                    (existing_path[i], existing_path[i + 1]))
+                try:
+                    alternative = cls.find_path(
+                        graph,
+                        start,
+                        end,
+                        blocked_connections={connection}
+                    )
+                    if alternative not in paths:
+                        paths.append(alternative)
+                    if len(paths) >= max_paths:
+                        return paths
+                except PathNotFoundError:
+                    continue
         return paths

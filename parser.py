@@ -15,7 +15,7 @@ class Parser:
     """Reads, validates and converts the map files into an object Graph."""
     @classmethod
     def _parse_nb_drones(cls, line: str, line_num: int, graph: Graph) -> None:
-        """Processes the initial line 'nb_drones: <positive_intenger>'."""
+        """Processes the initial line 'nb_drones: <positive_integer>'."""
         if ":" not in line:
             raise ParseError(line_num, "Invalid nb_drones syntax.")
         prefix, value = line.split(":", 1)
@@ -26,7 +26,7 @@ class Parser:
             nb_drones = int(value.strip())
         except ValueError:
             raise ParseError(line_num,
-                             "nb_drones must be a positive intenger.")
+                             "nb_drones must be a positive integer.")
         if nb_drones <= 0:
             raise ParseError(line_num, "nb_drones must be greater than 0.")
         graph.nb_drones = nb_drones

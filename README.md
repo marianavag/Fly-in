@@ -40,7 +40,6 @@ make lint        # Run flake8 and mypy static code analyses
 make lint-strict # Run strict typing compliance checks
 make debug       # Execute under Python debugger (pdb)
 make clean       # Remove bytecode and cache artifacts
-make fclean      # Run clean and also remove the .venv virtual environment
 ```
 
 ## Map Format
@@ -72,17 +71,20 @@ connection: waypoint2-goal [max_link_capacity=1]
 ### Pathfinding Strategy
 
 The traditional **Dijkstra's algorithm** was modified to support custom graph rules:
-- **Custom Cost Function**: Replaces standard unit distances with turn delays (1 turn for `normal`/`priority`, 2 turns for `restricted`, and infinite cost for `blocked` zones).
-- **Tie-Breaking Preference**: Prefers paths passing through `priority` zones when two routes have identical total turn costs.
-- **Multi-Path Extraction**: Runs iterative pathfinding to find secondary paths (`max_paths=2`), distributing drone traffic across alternate routes to avoid bottleneck congestion.
+- **Custom Cost Function:** Uses zone traversal costs instead of standard unit distances (1 turn for `normal` and `priority` zones, 2 turns for `restricted` zones, and infinite cost for `blocked` zones).
+- **Tie-Breaking Preference:** When two paths have the same total turn cost, paths passing through `priority` zones are preferred.
+- **Multi-Path Extraction:** Uses iterative pathfinding to identify alternative routes (`max_paths=2`).
+- **Path Selection and Drone Distribution:** Calculates the total traversal cost and preference weight of each available path. Only paths with the lowest combined cost are selected. When multiple paths have the same cost, drones are distributed alternately between them to improve traffic distribution.
 
 ### Simulation Engine
 
-* Tracks capacity limits (`max_drones` and `max_link_capacity`).
-* Allows dynamic vacating: a drone leaving a hub vacates space during the same turn, permitting entry to another drone.
-* A drone travelling to a restricted zone occupies the connection for both turns.
-* Deadlocks are avoided by design (paths do not share capacity 1 zones or links) and detected at runtime: a turn without any movement stops the program with a clear error.
-* Omits stationary waiting drones from turn logs as per project evaluation requirements.
+- **Drone Management:** Initializes drones and assigns them to the selected paths.
+- **Capacity Management:** Tracks zone occupancy (`max_drones`) and connection traversal limits (`max_link_capacity`).
+- **Simultaneous Movement:** Processes drone movements turn by turn while respecting zone and connection capacity constraints.
+- **Restricted Zone Handling:** A drone entering a restricted zone occupies the connection for two turns and must complete the transit on the following turn.
+- **Movement Tracking:** Maintains each drone's current position and path progress throughout the simulation.
+- **Deadlock Detection:** Detects situations where no drone can move and reports an error to prevent the simulation from continuing indefinitely.
+- **Turn Output:** Stationary drones are omitted from the output, as required by the project specifications.
 
 ## Visual Representation
 

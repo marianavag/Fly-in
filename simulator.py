@@ -16,17 +16,32 @@ class SimulationEngine:
             raise ValueError("Graph must have a start_hub and an end_hub.")
         self.paths = PathFinder.find_multiple_paths(graph, start_hub,
                                                     end_hub, max_paths=2)
+        if not self.paths:
+            raise ValueError("No valid path between start and end hubs.")
         self.current_turn: int = 0
         self.drones: list[Drone] = []
         self._init_drones()
 
     def _init_drones(self) -> None:
-        """Creates drones from start_hub and marks initial position."""
+        """Creates drones and distributes them across the best paths."""
         start_hub = self.graph.start_hub
         if start_hub is None:
             raise ValueError("Start hub is missing.")
+        path_costs = []
+        for path in self.paths:
+            turns = sum(
+                PathFinder.zone_turn_cost(self.graph, zone)
+                for zone in path[1:])
+            preference = sum(
+                PathFinder.zone_preference_weight(self.graph, zone)
+                for zone in path[1:])
+            path_costs.append((turns, preference))
+        best_cost = min(path_costs)
+        best_paths = [
+            path for path, cost in zip(self.paths, path_costs)
+            if cost == best_cost]
         for drone_id in range(1, self.graph.nb_drones + 1):
-            assigned_path = self.paths[(drone_id - 1) % len(self.paths)]
+            assigned_path = best_paths[(drone_id - 1) % len(best_paths)]
             drone = Drone(
                 drone_id=drone_id,
                 current_zone_name=start_hub,
@@ -101,27 +116,29 @@ class SimulationEngine:
         """Executes 1 turn of the simulation."""
         for connection in self.graph.connections:
             connection.current_traversals = 0
+        for drone in self.drones:
+            if drone.in_transit_turns > 0:
+                transit_link = self._get_connection(
+                    drone.path[drone.progress],
+                    drone.path[drone.progress + 1]
+                )
+                if transit_link:
+                    transit_link.current_traversals += 1
         moves: list[str] = []
         for drone in sorted(self.drones,
                             key=lambda drone: drone.progress, reverse=True):
             if drone.current_zone_name == self.graph.end_hub:
                 continue
             if drone.in_transit_turns > 0:
-                drone.in_transit_turns = 0
                 next_zone_name = drone.path[drone.progress + 1]
-                next_zone = self.graph.zones[next_zone_name]
-                if next_zone_name != self.graph.end_hub:
-                    taken = len(next_zone.current_drones) + self._incoming(
-                        next_zone_name)
-                    if taken >= next_zone.max_drones:
-                        drone.in_transit_turns = 1
-                        continue
+                drone.in_transit_turns = 0
                 self._move_drone(drone, next_zone_name)
-                zone_type = next_zone.zone_type
-                zone_color = next_zone.color
-                formatted_zone = TerminalVisual.format_zone(next_zone_name,
-                                                            zone_type,
-                                                            zone_color)
+                next_zone = self.graph.zones[next_zone_name]
+                formatted_zone = TerminalVisual.format_zone(
+                    next_zone_name,
+                    next_zone.zone_type,
+                    next_zone.color
+                )
                 moves.append(f"D{drone.drone_id}-{formatted_zone}")
                 continue
             move_msg = self._process_drone_move(drone)
@@ -144,6 +161,6 @@ class SimulationEngine:
             self.current_turn += 1
             iteration += 1
         if not self.is_finished():
-            raise RuntimeError("Simulation exceeded maximum turn limits"
+            raise RuntimeError("Simulation exceeded maximum turn limits "
                                "(possible infinite loop).")
         return history

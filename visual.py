@@ -1,4 +1,5 @@
 from typing import Optional
+import sys
 
 
 class TerminalVisual:
@@ -28,6 +29,8 @@ class TerminalVisual:
     def format_zone(cls, zone_name: str, zone_type: str,
                     color: Optional[str] = None) -> str:
         """Returns the zone name formated with the color."""
+        if not sys.stdout.isatty():
+            return zone_name
         if color and color in cls.COLORS:
             return f"{cls.COLORS[color]}{zone_name}{cls.RESET}"
         if zone_type == "priority":
