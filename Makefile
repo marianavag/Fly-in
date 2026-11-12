@@ -24,6 +24,6 @@ lint:
 
 lint-strict:
 	$(PYTHON) -m flake8 . --exclude .venv
-	$(PYTHON) -m mypy . --strict --python-version 3.10
+	$(PYTHON) -m mypy . --strict
 
 .PHONY: install run debug clean lint lint-strict
